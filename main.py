@@ -5,8 +5,10 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from jinja2 import exceptions
 from starlette.exceptions import HTTPException as StarletteHTTPExcpetion
-from starlette.status import HTTP_422_UNPROCESSABLE_CONTENT
+from starlette.status import HTTP_201_CREATED, HTTP_422_UNPROCESSABLE_CONTENT
 from starlette.templating import _TemplateResponse
+
+from schemas import PostCreate, PostResponse
 
 
 app = FastAPI()
@@ -41,7 +43,7 @@ def home(request: Request):
     )
 
 
-@app.get("/posts/{id}")
+@app.get("/posts/{id}", include_in_schema=False)
 def post_page(request: Request, id: int):
     for post in posts:
         if post.get("id") == id:
@@ -53,17 +55,33 @@ def post_page(request: Request, id: int):
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
 
 
-@app.get("/api/posts")
+@app.get("/api/posts", response_model=list[PostResponse])
 def get_posts():
     return posts
 
 
-@app.get("/api/posts/{id}")
+@app.get("/api/posts/{id}", response_model=PostResponse)
 def get_post(id: int):
     for post in posts:
         if post.get("id") == id:
             return post
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+
+
+@app.post("/api/posts",
+          status_code=HTTP_201_CREATED,
+          response_model=PostCreate)
+def create_post(post: PostCreate):
+    new_id: int = max(p["id"] for p in posts) + 1 if posts else 1
+    new_post: dict = {
+            "id": new_id,
+            "author": post.author,
+            "title": post.title,
+            "content": post.content,
+            "date_posted": "April 23, 2025",
+    }
+    posts.append(new_post)
+    return new_post
 
 
 @app.exception_handler(StarletteHTTPExcpetion)
